@@ -1,4 +1,7 @@
 from transformers import AutoTokenizer
+import numpy as np
+import torch
+import clip
 
 from tqdm import tqdm
 import json
@@ -71,3 +74,17 @@ class RetrievalDataset():
 
         # List of image ids of captions that will be present in the datastore
         self.batch_image_ids = filtered_image_ids
+    
+    def encode_datastore(self, clip_model, clip_tokenizer):
+        print("Encoding datastore captions")
+
+        bs = 1024
+        for idx in tqdm( range(0, len(self.captions), bs)):
+            with torch.no_grad():
+                if clip_tokenizer == None:
+                    input_ids = clip.tokenize( self.captions[idx:idx+bs] ).to(self.device)
+                else:
+                    input_ids = clip_tokenizer( self.captions[idx:idx+bs] ).to(self.device)
+                self.encoded_captions.append( clip_model.encode_text(input_ids).cpu().numpy() )
+
+        return np.concatenate(self.encoded_captions), self.batch_image_ids

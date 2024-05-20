@@ -9,6 +9,8 @@ import os
 
 from Datastore.retrieval_dataset import RetrievalDataset
 from Datastore.retrieval_method import RetrievalMethod
+from Reranking.rerank import CaptionReranking
+from faiss_search import FaissSearch
 
 
 
@@ -79,19 +81,45 @@ def main(args):
     datastore = RetrievalDataset(args.coco_path, args.web_path)
     datastore.preprocess()
 
+    batch_embeddings, batch_ids = datastore.encode_datastore(clip_model, clip_tokenizer)
+
     # Setup Retrieval System
     # TODO Allow retrieval to be done to NoCaps
 
     retrieval_method = RetrievalMethod(clip_model, feature_extractor, clip_tokenizer, device)
-    retrieval_target = None
+    target_embeddings, target_ids = None, None
 
     if args.retrieval_method == "text2text":
-        retrieval_target = retrieval_method.coco_text_2_text(args.coco_path)
+
+        if args.dataset == "coco":
+            target_embeddings, target_ids = retrieval_method.coco_text_2_text(args.coco_path)
+        if args.dataset == "nocaps":
+            pass
+
     elif args.retrieval_method == "img2text":
-        pass
+
+        if args.dataset == "coco":
+            target_embeddings, target_ids = retrieval_method.coco_image_2_text(args.coco_path, args.images_dir)
+        if args.dataset == "nocaps":
+            pass
+
     else:
         raise ValueError("Invalid retrieval method")
 
+    search_engine = FaissSearch(datastore, args.n, args.target)
+    retrieved_neighbors, similarities = search_engine.retrieve_captions(target_embeddings, target_ids, batch_embeddings, batch_ids)
+
+    # Re-rank
+    if args.diversity:
+        for lambda_value in args.lambda_params:
+            rerank_method = CaptionReranking(retrieved_neighbors, similarities, batch_embeddings, lambda_value)
+            retrieved_neighbors, similarities = rerank_method.rerank_all()
+        
+
+    # Save captions
+    retrieved_captions = nns_to_caption(retrieved_neighbors, similarities, datastore.captions, target_ids)
+
+    json.dump(retrieved_captions, open(args.output_path, 'w'))
 
 
 
@@ -103,10 +131,10 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Caption retrieval')
 
+    parser.add_argument("--images_dir", type=str, default="data/images/", help="Directory where input image features are stored")
     parser.add_argument("--coco_path", type=str, default="", help="Path to COCO data")
     parser.add_argument("--web_path", type=str, default="", help="Path to Web data")
 
-    
     parser.add_argument("--encoder_name", type=str, default="ViT-L-14", help="Encoder used to retrieve captions and categories")
 
     parser.add_argument("--retrieval_method", type=str, default="text2text", help="Use text2text retrieval or img2text retrieval")
@@ -118,6 +146,8 @@ if __name__ == '__main__':
     parser.add_argument("--lambda_params", type=float_or_list, help="Lambda parameter or parameters used in maximal marginal relevance (pos - diverse, neg - cohesive)")
 
     parser.add_argument("--dataset", type=str, default="coco", help="Use nocaps data instead of web data")
+
+    parser.add_argument("--output_path", type=str, default="", help="Json file where captions will be saved")
 
     args = parser.parse_args()
 
