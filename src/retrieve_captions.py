@@ -11,7 +11,7 @@ from Datastore.retrieval_dataset import RetrievalDataset
 from Datastore.retrieval_method import RetrievalMethod
 from Reranking.rerank import CaptionReranking
 from faiss_search import FaissSearch
-
+from retrieve_categories import retrieve_categories
 
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -94,14 +94,13 @@ def main(args):
         if args.dataset == "coco":
             target_embeddings, target_ids = retrieval_method.coco_text_2_text(args.coco_path)
         if args.dataset == "nocaps":
-            pass
-
+            raise ValueError("Txt-2-Txt retrieval is not available for nocaps")
     elif args.retrieval_method == "img2text":
 
         if args.dataset == "coco":
             target_embeddings, target_ids = retrieval_method.coco_image_2_text(args.coco_path, args.images_dir)
         if args.dataset == "nocaps":
-            pass
+            target_embeddings, target_ids = retrieval_method.nocaps_image_2_text(args.nocaps_path, args.images_dir)
 
     else:
         raise ValueError("Invalid retrieval method")
@@ -122,6 +121,9 @@ def main(args):
     json.dump(retrieved_captions, open(args.output_path, 'w'))
 
 
+    # Retrieve categories
+    if args.retrieve_categories:
+        retrieve_categories(clip_model, clip_tokenizer, target_ids, target_embeddings, args.categories_output_path)
 
 
    
@@ -133,6 +135,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--images_dir", type=str, default="data/images/", help="Directory where input image features are stored")
     parser.add_argument("--coco_path", type=str, default="", help="Path to COCO data")
+    parser.add_argument("--nocaps_path", type=str, default="", help="Path to nocaps data")
     parser.add_argument("--web_path", type=str, default="", help="Path to Web data")
 
     parser.add_argument("--encoder_name", type=str, default="ViT-L-14", help="Encoder used to retrieve captions and categories")
@@ -148,6 +151,10 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", type=str, default="coco", help="Use nocaps data instead of web data")
 
     parser.add_argument("--output_path", type=str, default="", help="Json file where captions will be saved")
+
+    parser.add_argument("--retrieve_categories", action="store_true", default=False, help="Wheter to retrieve categories or not")
+    parser.add_argument("--categories_output_path", type=str, default="", help="Json file where categories will be saved")
+
 
     args = parser.parse_args()
 

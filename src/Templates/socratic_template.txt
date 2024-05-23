@@ -1,0 +1,5 @@
+Assume you are an intelligent image captioning system. I think this photo was taken at a _place1_, _place2_, or _place3_. I think there might be a _object1_, _object2_ or _object3_ in this image. Similar images show
+
+||
+
+This image shows 

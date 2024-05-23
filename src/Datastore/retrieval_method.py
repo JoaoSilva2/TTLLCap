@@ -59,3 +59,22 @@ class RetrievalMethod():
                 encoded_images.append( self.clip_model.encode_image( torch.tensor(np.stack(input_images)).to(self.device) ).cpu().numpy() )
 
         return np.concatenate(encoded_images), query_image_ids
+
+    def nocaps_image_2_text(self, nocaps_path, images_path):
+        bs = 64
+        nocaps_data = json.load(open(nocaps_path))['images']
+
+        images = []
+        for item in nocaps_data:
+            images.append({'image_id': item['cocoid'], 'file_name': item['filename'].split('_')[-1]})
+        
+        query_image_ids = [img['image_id'] for img in images]
+
+        encoded_images = []
+        for idx in tqdm( range(0, len(query_image_ids), bs) ):
+            input_images = [self.feature_extractor( Image.open( os.path.join(images_path, img['file_name']) ) ) for img in images[idx:idx+bs]]
+
+            with torch.no_grad():
+                encoded_images.append( self.clip_model.encode_image( torch.tensor(np.stack(input_images)).to(self.device) ).cpu().numpy() )
+
+        return np.concatenate(encoded_images), query_image_ids
