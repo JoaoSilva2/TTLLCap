@@ -191,8 +191,8 @@ def main(args):
         
         lora_config = LoraConfig(
             use_rslora=True,
-            r=32,
-            lora_alpha=32,
+            r=args.rank,
+            lora_alpha=args.alpha,
             lora_dropout=0.1,
             bias="none",
             task_type="SEQ_2_SEQ_LM",
@@ -259,6 +259,8 @@ if __name__ == '__main__':
     parser.add_argument("--categories_path", type=str, default="data/retrieved_cats/ViT-L-14/retrieved_categories.json", help="JSON file with retrieved captions")
 
     parser.add_argument("--LoRA", action="store_true", default=False, help="Whether to use LoRA fine-tuning")
+    parser.add_argument("--rank", type=int, default=4, help="Value of rank used in LoRA (higher - more parameters)")
+    parser.add_argument("--alpha", type=int, default=8, help="Value of alpha used in LoRA (higher - less impact of fine-tuning)")
 
     args = parser.parse_args()
 
